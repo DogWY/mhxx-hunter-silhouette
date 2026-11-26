@@ -88,14 +88,14 @@ def package_nso(elf):
     return header + payload
 
 
-def link(objects, output):
+def link(objects, output, script=ROOT / "src/module.ld", extra=()):
     path = os.environ.get("LD_LLD") or shutil.which("ld.lld")
     if path:
         linker = [path]
     else:
         rust = subprocess.check_output(["rustc", "--print", "sysroot"], text=True).strip()
         linker = [str(next((Path(rust)/"lib/rustlib").glob("*/bin/rust-lld"))), "-flavor", "gnu"]
-    subprocess.run(linker + ["-T", ROOT/"src/module.ld", "--no-undefined", *objects, "-o", output],
+    subprocess.run(linker + ["-T", script, "--no-undefined", *extra, *objects, "-o", output],
                    check=True)
 
 
@@ -131,6 +131,33 @@ def validate_outline_shader():
         for word, in struct.iter_unpack("<Q", code[bundle + 8:bundle + 32]):
             if word >> 52 in (0xe27, 0xe32):
                 raise ValueError("Astris cannot translate PRET/RET in the outline shader")
+
+
+def width_cheats(image, module):
+    # The patched call and its landing address are identical in all four layouts.
+    slot = 8  # bind_targets
+    site = CALLS[slot][0]
+    landing = module + max(LAYOUTS) + 0x100
+    signature = landing + 4 * len(CALLS)
+    flags_rvas = set()
+    for extent in LAYOUTS:
+        offset = signature - module - extent + u32(image, 16)
+        if image[offset:offset + 4] != b"WID1":
+            raise ValueError("Missing outline cheat signature")
+        flags_rvas.add(u32(image, offset + 4) - module - extent)
+    rw_start = u32(image, 0x34)
+    rw_end = rw_start + u32(image, 0x38) + u32(image, 0x3c)
+    if len(flags_rvas) != 1 or not rw_start <= flags_rvas.pop() <= rw_end - 4:
+        raise ValueError("Invalid outline cheat configuration address")
+    sections = []
+    for index, (width, label) in enumerate(((1, "细"), (3, "标准"), (5, "粗"), (8, "特粗"))):
+        sections.append(f"[猎人描边线宽 {width}px（{label}）]\n"
+                        f"14050000 {site:08X} {arm_branch(site, landing + 4 * slot, True):08X}\n"
+                        f"14050000 {signature:08X} {int.from_bytes(b'WID1', 'little'):08X}\n"
+                        f"540F0000 {signature + 4:08X}\n"
+                        f"010F0000 {index:08X} 00000001\n"
+                        "20000000\n20000000\n")
+    return "\n".join(sections)
 
 
 def build(exefs, companions, diagnostics=False):
@@ -200,6 +227,10 @@ def build(exefs, companions, diagnostics=False):
             with ZipFile(out, "w") as archive:
                 for leaf, data in (("subsdk3", image), (MAIN_ID.hex().upper()+".ips", patch)):
                     archive.writestr(ZipInfo(name+"/exefs/"+leaf), data, compress_type=ZIP_DEFLATED)
+                archive.writestr(ZipInfo(name + "/romfs/mhgu-outline/outline-width.txt"),
+                                 (ROOT / "config/outline-width.txt").read_bytes())
+                bid = MAIN_ID[:8].hex()
+                archive.writestr(ZipInfo(f"{name}/cheats/{bid}.txt"), width_cheats(image, module))
             out.replace(dist / out.name)
 
 if __name__ == "__main__":

@@ -83,6 +83,8 @@ initialized:
     b scene_clear
     b worker_composite
     b main_composite
+    .ascii "WID1"
+    .word width_cheat_flags + 0x2715000 + 0xd000
 
 .section .landing.p1,"ax"
     b trace_0
@@ -100,6 +102,8 @@ initialized:
     b scene_clear
     b worker_composite
     b main_composite
+    .ascii "WID1"
+    .word width_cheat_flags + 0x2715000 + 0x8000
 
 .section .landing.p2,"ax"
     b trace_0
@@ -117,6 +121,8 @@ initialized:
     b scene_clear
     b worker_composite
     b main_composite
+    .ascii "WID1"
+    .word width_cheat_flags + 0x2715000 + 0x5000
 
 .section .landing.p3,"ax"
     b trace_0
@@ -134,6 +140,8 @@ initialized:
     b scene_clear
     b worker_composite
     b main_composite
+    .ascii "WID1"
+    .word width_cheat_flags + 0x2715000 + 0x0
 
 .text
 trace_0:

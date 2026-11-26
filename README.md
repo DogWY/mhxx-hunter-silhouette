@@ -2,6 +2,22 @@
 
 当前可安装产物是 **MHGU-Outline-Trace**。该包在场景深度、猎人及大型怪物独立深度都就绪时，在交换链图像上合成青色轮廓。已在 Astris 任务中观察到大型怪物遮住猎人时出现轮廓，猎人重新露出后轮廓消失。目标平台为 macOS Astris 1.0.32、Switch 国际版 MHGU 1.4.0，Title ID 为 `0100770008DD8000`。
 
+## 调整线宽
+
+解压安装包到游戏的 LayeredFS Mods 目录，在 **Manage Mods** 中启用主模块 **MHGU-Outline-Trace**。在 Astris 游戏库右键 MHGU → **Manage Cheats…**，展开路径含有 `/MHGU-Outline-Trace/cheats/fb08f1d20fd1204f.txt` 的分组。勾选一个「猎人描边线宽」子项：**1 px（细）、3 px（标准）、5 px（粗）、8 px（特粗）**。切换时取消旧档，点 **Done** 后重新启动游戏。
+
+未选或多选时使用 `MHGU-Outline-Trace/romfs/mhgu-outline/outline-width.txt` 中的值（1–8，默认 3）。首次合成时日志会输出实际线宽，如 `MHGU outline width 5 px`。旧版的四个独立线宽 Mod 可以移除。
+
+## 调整任务视距
+
+[下载任务视距 Mod](dist/MHGU-Quest-Camera.zip)，解压到 MHGU 的 Mods 目录。关闭旧的「视距增加」档位，在 **Manage Mods** 启用 **MHGU-Quest-Camera**。打开 **Manage Cheats**，展开路径含有 `/MHGU-Quest-Camera/cheats/` 的分组，只勾选一个任务视距档位（+20%、+40%、+60% 或 +80%）。点击 **Done** 并重新启动游戏。
+
+这些档位对应旧版四个 Mod 的任务镜头距离。未选或同时选中多档时，游戏使用任务镜头资源中的原值。村庄镜头沿用原设置。视距和猎人描边可以独立启用。用自己的 MHGU 国际版 1.4.0 ExeFS 构建视距包：
+
+```sh
+python3 tools/build_quest_camera.py /path/to/exefs
+```
+
 ## 构建与诊断
 
 准备 Python 3、clang、liblz4、nm 和 ld.lld（也可使用 Rust 工具链附带的 rust-lld）。从拥有的游戏导出 1.4.0 原版 ExeFS 后运行

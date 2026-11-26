@@ -22,6 +22,11 @@ uniform float clearDepth;
 // Use (1,0,0,1) for already-linear distances.
 uniform vec4 depthDecode;
 #endif
+#if defined(DEKO3D) || defined(TEST_NATIVE_DEPTH)
+layout(location=1) flat in int outlineWidth;
+#else
+uniform int outlineWidth;
+#endif
 layout(location = 0) out vec4 color;
 
 #ifndef DEKO3D
@@ -59,11 +64,12 @@ void main() {
 #endif
 
     ivec2 size = textureSize(hunterDepth, 0);
-    // Sample the perimeter at radius three (diagonals at sqrt(8)).
-    if (covered(pixel + ivec2(3, 0), size) && covered(pixel - ivec2(3, 0), size) &&
-        covered(pixel + ivec2(0, 3), size) && covered(pixel - ivec2(0, 3), size) &&
-        covered(pixel + ivec2(2, 2), size) && covered(pixel - ivec2(2, 2), size) &&
-        covered(pixel + ivec2(2, -2), size) && covered(pixel - ivec2(2, -2), size))
+    int r = outlineWidth;
+    int d = int(floor(float(r) * 0.70710678 + 0.5));
+    if (covered(pixel + ivec2(r, 0), size) && covered(pixel - ivec2(r, 0), size) &&
+        covered(pixel + ivec2(0, r), size) && covered(pixel - ivec2(0, r), size) &&
+        covered(pixel + ivec2(d, d), size) && covered(pixel - ivec2(d, d), size) &&
+        covered(pixel + ivec2(d, -d), size) && covered(pixel - ivec2(d, -d), size))
         discard;
     color = vec4(0.35, 1.0, 1.0, 1.0);
 }

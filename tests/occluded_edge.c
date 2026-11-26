@@ -76,7 +76,10 @@ int main(int argc, char **argv) {
     glGenTextures(3, layers);
     const char *names[] = {"hunterDepth", "largeMonsterDepth", "sceneDepth"};
     glUniform1f(glGetUniformLocation(program, "depthTolerance"), 0.001f);
-    for (int scenario = native ? 6 : 0; scenario < 18; ++scenario) {
+    for (int test = 0; test < (native ? 12 : 18) * 8; ++test) {
+        int radius = 1 + test / (native ? 12 : 18);
+        int scenario = (native ? 6 : 0) + test % (native ? 12 : 18);
+        glUniform1i(glGetUniformLocation(program, "outlineWidth"), radius);
         int frame = scenario % 6;
         int encoding = scenario / 6;
         // Near 1, infinite far. Reverse Z stores 1/z, forward Z stores 1-1/z.
@@ -94,7 +97,7 @@ int main(int argc, char **argv) {
             depth[0][i] = hunter ? 5 : 0;
             depth[1][i] = monster ? (frame == 4 ? 7 : 3) : 0;
             depth[2][i] = frame == 3 ? 1 : monster && frame != 4 ? 3 : hunter ? 5 : 10;
-            expected[i] = hunter && (x <= 4 || x >= 10 || y <= 4 || y >= 8) &&
+            expected[i] = hunter && (x < 2 + radius || x > 12 - radius || y < 2 + radius || y > 10 - radius) &&
                           (frame == 2 || (frame == 1 && y >= 6));
         }
         for (int i = 0; i < 3; ++i) {
@@ -115,7 +118,7 @@ int main(int argc, char **argv) {
         }
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, native && clear == 1.0f ? 3 : 0, 3);
+        glDrawArrays(GL_TRIANGLES, native ? (radius-1)*8 + (clear == 1.0f ? 4 : 0) : 0, 3);
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
         if (glGetError() != GL_NO_ERROR) return 1;
         for (int i = 0; i < pixels; ++i) if ((rgba[i][3] != 0) != expected[i]) {
@@ -123,6 +126,6 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    puts(native ? "All 12 native depth scenarios passed." : "All 18 offscreen GPU depth scenarios passed.");
+    puts(native ? "All 96 native depth scenarios passed." : "All 144 offscreen GPU depth scenarios passed.");
     return 0;
 }

@@ -20,6 +20,41 @@ static Word read_word(Word base, unsigned offset) {
 static _Alignas(4096) unsigned char storage[8192]; // includes NVN shader prefetch padding
 static _Alignas(16) unsigned char pool[256], program[192];
 static int program_status;
+static unsigned configured_width;
+// The four independent cheat sections set one byte each in module-owned RAM.
+_Alignas(4) volatile Word width_cheat_flags;
+
+static unsigned selected_width(Word flags, unsigned fallback) {
+    switch (flags) {
+    case 0x00000001: return 1;
+    case 0x00000100: return 3;
+    case 0x00010000: return 5;
+    case 0x01000000: return 8;
+    default: return fallback;
+    }
+}
+
+static unsigned read_outline_width(Word base) {
+    typedef Word (*Open)(Word *, const char *, int);
+    typedef Word (*Read)(unsigned *, Word, int64_t, void *, unsigned);
+    typedef void (*Close)(Word);
+    Word handle;
+    if (((Open)(uintptr_t)(base + 0x13f04b4))(&handle, "app:/mhgu-outline/outline-width.txt", 1))
+        return 3;
+    char text[32];
+    unsigned length = 0;
+    Word error = ((Read)(uintptr_t)(base + 0x13f0448))(&length, handle, 0, text, sizeof text);
+    ((Close)(uintptr_t)(base + 0x13f046c))(handle);
+    if (error || length >= sizeof text) return 3;
+    unsigned width = 0;
+    for (unsigned i = 0; i < length; ++i) {
+        char c = text[i];
+        if (c == ' ' || c == '\r' || c == '\n' || c == '\t') continue;
+        if (width || c < '1' || c > '8') return 3;
+        width = (unsigned)(c - '0');
+    }
+    return width ? width : 3;
+}
 
 typedef struct { Handle code; const void *control; } Shader;
 _Static_assert(sizeof(Shader) == 16, "NVN shader data ABI");
@@ -56,6 +91,7 @@ static void composite(Word renderer, Word base) {
     Word device = read_word(renderer, 144), color = read_word(swap, 60);
     if (!device || !color) return;
     if (!program_status) {
+        configured_width = read_outline_width(base);
         program_status = make_program(base, device) ? 1 : -1;
         if (program_status < 0) {
             static const char msg[] = "MHGU outline shader initialization failed";
@@ -84,7 +120,15 @@ static void composite(Word renderer, Word base) {
     }
     PROC(0x191fd0c, void, Word, int, int, int, int)(commands, 0, 0, width, height);
     PROC(0x191fd18, void, Word, int, int, int, int)(commands, 0, 0, width, height);
-    PROC(0x191fcd0, void, Word, unsigned, int, int)(commands, 4, clear_one ? 3 : 0, 3);
+    unsigned outline_width = selected_width(width_cheat_flags, configured_width);
+    static unsigned reported_width;
+    if (outline_width != reported_width) {
+        reported_width = outline_width;
+        char message[] = "MHGU outline width 0 px";
+        message[19] = '0' + outline_width;
+        trace_line(message, sizeof message - 1);
+    }
+    PROC(0x191fcd0, void, Word, unsigned, int, int)(commands, 4, (outline_width - 1) * 8 + clear_one * 4, 3);
     static unsigned reported;
     if (!reported) {
         reported = 1;
